@@ -43,11 +43,11 @@ def parse_args():
 
     # Data
     parser.add_argument(
-        "--train_data_dir", type=str, default="data/val_v1.1",
+        "--train_data_dir", type=str, default="/home/kevin/Downloads/CampusDataset-20241111T004839Z-001/CampusDataset/Traj_01/day_forward_1",
         help="Directory containing tokenized data, should have a `video.bin`, `metadata.json` and `segment_ids.json`."
     )
-    parser.add_argument(
-        "--val_data_dir", type=str, default="data/val_v1.1",
+    parser.add_argument(#same as train, fix it later
+        "--val_data_dir", type=str, default="/home/kevin/Downloads/CampusDataset-20241111T004839Z-001/CampusDataset/Traj_01/day_forward_1",
         help="Directory containing tokenized data, should have a `video.bin`, `metadata.json` and `segment_ids.json`."
     )
     parser.add_argument(

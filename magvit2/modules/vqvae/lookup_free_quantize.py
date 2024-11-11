@@ -192,6 +192,23 @@ class LFQ(Module):
         x = rearrange(x, "b (h w) c -> b h w c", h=h, w=w, c=c)
         x = rearrange(x, "b h w c -> b c h w")
         return x
+    def quant_to_int(self, x, bhwc):
+        # Reshape from (b, c, h, w) to (b, h, w, c)
+        b, h, w, c = bhwc
+        x = rearrange(x, "b c h w -> b h w c")
+        
+        # Flatten spatial dimensions
+        x = rearrange(x, "b h w c -> b (h w) c", h=h, w=w, c=c)
+        
+        # Convert back to binary
+        x = (x + 1.0) / 2.0  # Map -1.0, 1.0 to 0, 1
+        x = x.long()  # Convert float to integer
+
+        # Convert binary back to integers
+        mask = 2 ** torch.arange(self.codebook_dim - 1, -1, -1, device=x.device, dtype=torch.long)
+        x = (x * mask).sum(dim=-1)  # Sum the binary values to get integers
+        x = x.reshape([b, h, w])
+        return x
 
     def bits_to_indices(self, bits):
         """

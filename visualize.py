@@ -118,7 +118,7 @@ def decode_latents_wrapper(batch_size=16, tokenizer_ckpt="data/magvit2.ckpt", ma
                 break
 
         return [transforms_f.to_pil_image(img) for img in torch.cat(decoded_imgs)]
-
+        
     return decode_latents
 
 

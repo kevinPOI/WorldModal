@@ -38,8 +38,12 @@ def parse_args():
         "--val_data_dir", type=str, default="data/val_v1.1",
         help="A directory with video data, should have a `metadata.json` and `video.bin`."
     )
+    # parser.add_argument(
+    #     "--checkpoint_dir", type=str,default="data/genie_model/final_checkpt",
+    #     help="Path to a HuggingFace-style checkpoint."
+    # )
     parser.add_argument(
-        "--checkpoint_dir", type=str,
+        "--checkpoint_dir", type=str,default="1x-technologies/GENIE_138M",
         help="Path to a HuggingFace-style checkpoint."
     )
     parser.add_argument(
@@ -54,7 +58,7 @@ def parse_args():
         help="Sampling temperature. If `temperature` <= 1e-8, will do greedy sampling."
     )
     parser.add_argument(
-        "--save_outputs_dir", type=str,
+        "--save_outputs_dir", type=str,default="experiments",
         help="Debug option. If specified, will save model predictions and ground truths to this directory. "
              "Specifically, will save `{pred_frames,pred_logits,gtruth_frames,gtruth_tokens}.pt`"
     )
@@ -194,6 +198,7 @@ def main():
             outputs_to_save["pred_logits"].append(factored_logits)
             outputs_to_save["gtruth_frames"].append(decoded_gtruth)
             outputs_to_save["gtruth_tokens"].append(reshaped_input_ids)
+        break
 
     if args.save_outputs_dir is not None:
         os.makedirs(args.save_outputs_dir, exist_ok=True)
