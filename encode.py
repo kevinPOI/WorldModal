@@ -107,6 +107,57 @@ def decode_latents_wrapper(batch_size=16, tokenizer_ckpt="data/magvit2.ckpt", ma
         return [transforms_f.to_pil_image(img) for img in torch.cat(decoded_imgs)]
 
     return decode_latents
+def encode_img_batch(img_batch, tokenizer_ckpt="data/magvit2.ckpt"):
+    batch_size, _, h, w = img_batch.shape #expect h, w to be 256, 256
+    
+    device = "cuda"
+    dtype = torch.bfloat16
+    model_config = VQConfig()
+    model = VQModel(model_config, ckpt_path=tokenizer_ckpt)
+    model = model.to(device=device, dtype=dtype)
+    bhwc = torch.Size([batch_size, 16,16, model.quantize.codebook_dim])
+    img_batch_flat = img_batch.to(device = device, dtype = dtype)
+    quant, emb_loss, info, loss_breakdown = model.encode(img_batch_flat)
+    uint_enc = model.quantize.quant_to_int(quant.flip(1), bhwc)
+    return uint_enc
+
+def encode_img_in_dir(folder_path = "/home/kevin/day_forward_small/panoramas", batch_size = 8):
+    transform = transforms.Compose([
+        transforms.Resize((256, 256)),
+        transforms.ToTensor()  # Converts to a tensor and scales to [0, 1]
+    ])
+    
+    # List to hold all images as tensors
+    batched_tensors = []
+    # List to hold images for the current batch
+    current_batch = []
+
+    # Loop through each file in the folder
+    for filename in os.listdir(folder_path):
+        if filename.endswith(".jpg") or filename.endswith(".png"):  # Modify as needed
+            img_path = os.path.join(folder_path, filename)
+            image = Image.open(img_path).convert("RGB")  # Ensure 3 channels
+            image_tensor = transform(image)  # Apply transforms
+            current_batch.append(image_tensor)
+
+            # If the current batch reaches the batch size, stack it and add to batched_tensors
+            if len(current_batch) == batch_size:
+                batched_tensors.append(torch.stack(current_batch).to('cpu'))
+                current_batch = []  # Reset current batch
+
+    # If there are remaining images that didn't fill a full batch, add them as well
+    if current_batch:
+        batched_tensors.append(torch.stack(current_batch))
+
+    int_encodings_list = []
+    for batch in batched_tensors:
+        encoding = encode_img_batch(batch).to('cpu')
+        int_encodings_list.append(encoding)
+    int_encodings_mat = torch.cat(int_encodings_list, dim=0)
+    torch.save(int_encodings_mat, folder_path + '/encoded_images.pt')
+    #return int_encodings_list
+    
+
 def encode_img_test(tokenizer_ckpt="data/magvit2.ckpt"):
     device = "cuda"
     dtype = torch.bfloat16
@@ -127,7 +178,7 @@ def encode_img_test(tokenizer_ckpt="data/magvit2.ckpt"):
         ]
     )
     restore_transform = transforms.Resize((image.size[1], image.size[0]))
-    image_tensor = transform(image)
+    image_tensor = transform(image)#[3,256,256]
     image_tensor = image_tensor.unsqueeze(0)
     image_tensor = image_tensor.to(device = device, dtype = dtype)
     quant, emb_loss, info, loss_breakdown = model.encode(image_tensor)
@@ -137,17 +188,6 @@ def encode_img_test(tokenizer_ckpt="data/magvit2.ckpt"):
                                                               bhwc=bhwc).flip(1)
         pass
     decoded =restore_transform(rescale_magvit_output2(model.decode(quant)))
-#     decoded_image = decoded.detach().cpu().to(torch.float32)[0]
-#     decoded_image = restore_transform(decoded_image)
-# # Convert the tensor from CxHxW to HxWxC for displaying
-#     if decoded_image.shape[0] == 3:  # Assuming a 3-channel image
-#         decoded_image = decoded_image.permute(1, 2, 0)
-
-#     # Convert from [0, 1] range if necessary (for float images)
-#     decoded_image = decoded_image * 255
-
-#     # Convert to numpy
-#     decoded_image = decoded_image.numpy().astype('uint8')
     decoded_image = decoded[0]
     if decoded_image.shape[0] == 3:  # Assuming a 3-channel image
         decoded_image = decoded_image.permute(1, 2, 0)
@@ -181,17 +221,6 @@ def encode_img(tokenizer_ckpt="data/magvit2.ckpt"):
     image_tensor = image_tensor.to(device = device, dtype = dtype)
     quant, emb_loss, info, loss_breakdown = model.encode(image_tensor)
     decoded =restore_transform(rescale_magvit_output2(model.decode(quant)))
-#     decoded_image = decoded.detach().cpu().to(torch.float32)[0]
-#     decoded_image = restore_transform(decoded_image)
-# # Convert the tensor from CxHxW to HxWxC for displaying
-#     if decoded_image.shape[0] == 3:  # Assuming a 3-channel image
-#         decoded_image = decoded_image.permute(1, 2, 0)
-
-#     # Convert from [0, 1] range if necessary (for float images)
-#     decoded_image = decoded_image * 255
-
-#     # Convert to numpy
-#     decoded_image = decoded_image.numpy().astype('uint8')
     decoded_image = decoded[0]
     if decoded_image.shape[0] == 3:  # Assuming a 3-channel image
         decoded_image = decoded_image.permute(1, 2, 0)
@@ -201,10 +230,7 @@ def encode_img(tokenizer_ckpt="data/magvit2.ckpt"):
     cv2.imshow('Decoded Image', decoded_image)
     cv2.imshow('Original Image', cv_image)
     cv2.waitKey(0)
-    # plt.imshow(image)
-    # plt.imshow(decoded_image)
-    # plt.axis('off')  # Turn off axis
-    # plt.show()
+
 def rescale_magvit_output2(magvit_output):
     """
     [min, max] -> [0, 255]
@@ -223,7 +249,8 @@ def rescale_magvit_output2(magvit_output):
 @torch.no_grad()
 def main():
     #args = parse_args()
-    encode_img2()
+    #encode_img_test()
+    encode_img_in_dir()
     # Load tokens
     
 
